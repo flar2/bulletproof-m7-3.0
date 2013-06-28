@@ -84,6 +84,7 @@ GTAGS
 *.orig
 *.rej
 *.oc
+*.diff
 *.nooc
 *.patch
 *~
