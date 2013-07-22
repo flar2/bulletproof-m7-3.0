@@ -168,6 +168,8 @@ extern uint8_t touchscreen_is_on(void)
 } 
 
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_SWEEP2WAKE
+int button_id = 0;
+int cancel_pwrtrigger = 0;
 int s2w_switch = 1;
 int l2m_switch = 1;
 int l2w_switch = 0;
@@ -184,9 +186,10 @@ cputime64_t pwrtrigger_time[2] = {0, 0};
 int wakesleep_vib = 0;
 int vib_strength = 15;
 static int break_longtap_count = 0;
+#define S2W_START 60
 #define S2W_TIMEOUT 350
 #define S2W_TIMEOUT2 600
-#define S2W_TIMEOUT3 850
+#define S2W_TIMEOUT3 800
 #define L2M_TIMEOUT 300
 #define DT2W_TIMEOUT_MAX 275
 #define DT2W_TIMEOUT_MIN 150
@@ -256,10 +259,15 @@ void sweep2wake_pwrtrigger(void) {
         pwrtrigger_time[1] = pwrtrigger_time[0];
         pwrtrigger_time[0] = ktime_to_ms(ktime_get());	
 
-	if (pwrtrigger_time[0] - pwrtrigger_time[1] < S2W_TIMEOUT3)
-		return;
+	printk("[S2W] pwrtrigger2=%llu pwrtrigger1=%llu\n ", pwrtrigger_time[1], pwrtrigger_time[0]);
 
-	schedule_work(&sweep2wake_presspwr_work);
+	if (pwrtrigger_time[0] - pwrtrigger_time[1] < S2W_TIMEOUT3) {
+		printk("not enough time\n");
+		return;
+	}
+	if (!cancel_pwrtrigger)
+		schedule_work(&sweep2wake_presspwr_work);
+
         return;
 }
 
@@ -424,6 +432,23 @@ static int __init get_dt2w_opt(char *dt2w)
 }
 
 __setup("dt2w=", get_dt2w_opt); 
+
+
+static int __init get_vib_opt(char *vib)
+{
+	if (strcmp(vib, "0") == 0) {
+		vib_strength = 0;
+	} else if (strcmp(vib, "1") == 0) {
+		vib_strength = 15;
+	} else if (strcmp(vib, "2") == 0) {
+		vib_strength = 30;
+	} else {
+		vib_strength = 15;
+	}
+	return 1;
+}
+
+__setup("vib=", get_vib_opt);
 
 #endif
 
@@ -2411,30 +2436,54 @@ static void sweep2wake_func(int button_id, cputime64_t strigger_time) {
         s2w_hist[1] = s2w_hist[0];
         s2w_hist[0] = button_id;
 
-//	printk(KERN_INFO "button id 1=%i, button id 2= %i\n", s2w_hist[0], s2w_hist[1]);
+	printk("[S2W]: in func button id 1=%i, button id 2= %i\n", s2w_hist[0], s2w_hist[1]);
+	printk("[S2W]: in func button time1=%llu, button time2= %llu, button time3= %llu\n", s2w_time[0], s2w_time[1], s2w_time[2]);
 
-	if ((s2w_time[0]-s2w_time[2]) < S2W_TIMEOUT2) {
-//		printk("[S2W]: canceled\n");
+	if ((s2w_time[0]-s2w_time[2]) < S2W_TIMEOUT2 && !scr_suspended) {
+		printk("[S2W]: canceled\n");
 		return;
 	}
 
-	if (s2w_switch == 1 && (s2w_hist[1] == 1 && s2w_hist[0] == 2)
-			&& scr_suspended && ((s2w_time[0]-s2w_time[1]) < S2W_TIMEOUT)) {
-
-//                        	printk("[S2W]: OFF->ON\n");
+	if ((s2w_time[0]-s2w_time[2]) < S2W_TIMEOUT2 && scr_suspended) {
+		printk("[S2W]: home->back->home\n");
+		if (s2w_switch == 1 && (s2w_hist[1] == 1 && s2w_hist[0] == 2)) {
+                        	printk("[S2W]: OFF->ON\n");
 				wakesleep_vib = 1;
+				cancel_pwrtrigger = 0;
+                        	sweep2wake_pwrtrigger();
+				return;
+		}
+	}
+
+	if ((s2w_time[0]-s2w_time[1]) < S2W_TIMEOUT && (s2w_time[0]-s2w_time[1]) > S2W_START) {
+
+		if (s2w_switch == 1 && (s2w_hist[1] == 1 && s2w_hist[0] == 2) && scr_suspended) {
+                        	printk("[S2W]: OFF->ON\n");
+				wakesleep_vib = 1;
+				cancel_pwrtrigger = 0;
                         	sweep2wake_pwrtrigger();
 				return;
 
-	} else if ((s2w_hist[1] == 2 && s2w_hist[0] == 1) && !scr_suspended
-			&& ((s2w_time[0]-s2w_time[1]) < S2W_TIMEOUT)) {
-
-//	                        printk("[S2W]: ON->OFF\n");
+		} else if ((s2w_hist[1] == 2 && s2w_hist[0] == 1) && !scr_suspended) {
+	                        printk("[S2W]: ON->OFF\n");
 				wakesleep_vib = 1;
+				cancel_pwrtrigger = 0;
 	                        sweep2wake_pwrtrigger();
 				return;
-	} 
 
+		} else if ((s2w_hist[1] == 2 && s2w_hist[0] == 1) && scr_suspended) {
+				printk("[S2W]: ON->OFF (cancel, screen already off)\n");
+				cancel_pwrtrigger = 1;
+	                        sweep2wake_pwrtrigger();
+				return;
+
+		} else if ((s2w_hist[1] == 1 && s2w_hist[0] == 2) && !scr_suspended) {
+			        printk("[S2W]: OFF->ON (cancel, screen already on)\n");
+				cancel_pwrtrigger = 1;
+	                        sweep2wake_pwrtrigger();
+				return;
+		}
+	}
         return;
 }
 
@@ -2509,6 +2558,7 @@ static void dt2w_func(int x, int y, cputime64_t trigger_time) {
 		) {
                        // printk("[DT2W]: OFF->ON\n");
 			wakesleep_vib = 1;
+			cancel_pwrtrigger = 0;
                         sweep2wake_pwrtrigger();
 		}
 	}
@@ -3021,7 +3071,6 @@ static void synaptics_ts_button_func(struct synaptics_ts_data *ts)
 	int ret;
 	uint8_t data = 0;
 	uint16_t x_position = 0, y_position = 0;
-        int button_id = 0;
         cputime64_t strigger_time = 0;
 
 	ret = i2c_syn_read(ts->client,
@@ -3038,11 +3087,7 @@ static void synaptics_ts_button_func(struct synaptics_ts_data *ts)
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_SWEEP2WAKE
 			button_id = 1;
 
-			if (s2w_switch == 1 || s2w_switch == 2) {
-				strigger_time = ktime_to_ms(ktime_get());
-				sweep2wake_func(button_id, strigger_time);
-				// printk("[S2W]: button id=%i\n", button_id);
-			}
+//			printk("[S2W]: in back button id=%i button time=%llu\n", button_id, ktime_to_ms(ktime_get()));
 #endif
 
 			if (ts->button) {
@@ -3115,11 +3160,7 @@ static void synaptics_ts_button_func(struct synaptics_ts_data *ts)
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_SWEEP2WAKE
 			button_id = 2;
 
-			if (s2w_switch == 1 || s2w_switch == 2) {
-				strigger_time = ktime_to_ms(ktime_get());
-				sweep2wake_func(button_id, strigger_time);
-				// printk("[S2W]: button id=%i\n", button_id);
-			}
+//			printk("[S2W]: in home button id=%i button time=%llu\n", button_id, ktime_to_ms(ktime_get()));
 #endif
 			if (ts->button) {
 				if (ts->button[1].index) {
@@ -3187,6 +3228,13 @@ static void synaptics_ts_button_func(struct synaptics_ts_data *ts)
 		vk_press = 0;
 
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_SWEEP2WAKE
+//		printk("[S2W]: in release button id=%i button time=%llu\n", button_id, ktime_to_ms(ktime_get()));
+
+		if (s2w_switch == 1 || s2w_switch == 2) {
+			strigger_time = ktime_to_ms(ktime_get());
+			sweep2wake_func(button_id, strigger_time);
+		}
+
 	   if (!scr_suspended) {
 #endif
 		if (ts->htc_event == SYN_AND_REPORT_TYPE_A) {
