@@ -2550,6 +2550,7 @@ static int report_htc_logo_area(int x, int y) {
 			return 1;
 		}
 	}
+	break_longtap_count=1; 
 	return 0;
 }
 
