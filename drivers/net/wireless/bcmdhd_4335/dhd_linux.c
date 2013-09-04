@@ -604,8 +604,6 @@ static int dhd_wl_host_event(dhd_info_t *dhd, int *ifidx, void *pktdata,
 #define WLC_HT_TKIP_RESTRICT    0x02     
 #define WLC_HT_WEP_RESTRICT     0x01    
 
-#define CUSTOM_AP_AMPDU_BA_WSIZE    32
-
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP)
 static int dhd_sleep_pm_callback(struct notifier_block *nfb, unsigned long action, void *ignored)
 {
@@ -4574,7 +4572,6 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 
 	if ((!op_mode && strstr(fw_path, "_apsta") != NULL) ||
 		(op_mode == DHD_FLAG_HOSTAP_MODE)) {
-        ampdu_ba_wsize = CUSTOM_AP_AMPDU_BA_WSIZE;
 #ifdef SET_RANDOM_MAC_SOFTAP
 		uint rand_mac;
 #endif

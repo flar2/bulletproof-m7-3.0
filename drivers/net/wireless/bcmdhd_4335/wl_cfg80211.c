@@ -8805,7 +8805,7 @@ static s32 wl_notify_escan_complete(struct wl_priv *wl,
 			err = -ENOMEM;
 		} else {
 			
-			if (!check_hang_already(dev)) {
+			if (dev && !check_hang_already(dev)) {
 				WL_ERR(("scan abort  to %s \n", dev->name));
 				err = wldev_ioctl(dev, WLC_SCAN, params, params_size, true);
 				if (err < 0) {
@@ -8844,7 +8844,7 @@ static s32 wl_notify_escan_complete(struct wl_priv *wl,
 		wl->sched_scan_req = NULL;
 	}
 #endif 
-	if (likely(wl->scan_request)) {
+	if (likely(wl->scan_request) && (wl->scan_request->wiphy == wl_to_wiphy(wl)) && (wl->scan_request->wiphy)) {
 		cfg80211_scan_done(wl->scan_request, aborted);
 		wl->scan_request = NULL;
 	}

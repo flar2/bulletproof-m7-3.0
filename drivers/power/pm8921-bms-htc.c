@@ -64,8 +64,10 @@ static bool flag_enable_bms_chg_log;
 #define AMUX_TRIM_2			0x322
 #define TEST_PROGRAM_REV	0x339
 
+
 #define OCV_UPDATE_STORAGE	0x105
-#define OCV_UPDATE_STORAGE_USE_MASK	0x0F
+#define OCV_UPDATE_STORAGE_USE_MASK		(1)
+#define OCV_HW_RESET_MASK			(1<<1)
 
 #define BATT_MAX_OCV_UV		5000000
 #define BATT_MIN_OCV_UV		0
@@ -957,6 +959,44 @@ static void adjust_pon_ocv(struct pm8921_bms_chip *chip, int *uv)
 	if (*uv >= MBG_TRANSIENT_ERROR_UV)
 		*uv -= MBG_TRANSIENT_ERROR_UV;
 }
+
+int pm8921_store_hw_reset_reason(int is_hw_reset)
+{
+	int rc = 0;
+	u8 reset = 0;
+	u8 ocv_hw_reset_old = 0, ocv_hw_reset = 0;
+
+	if (!the_chip) {
+		pr_err("%s called before initialization\n", __func__);
+		return -EINVAL;
+	}
+
+	if (is_hw_reset)
+		reset = BIT(1);
+	else
+		reset = 0;
+
+	
+	rc = pm8xxx_readb(the_chip->dev->parent, OCV_UPDATE_STORAGE, &ocv_hw_reset_old);
+	if (rc) {
+		pr_err("%s: failed to read addr = %d, rc=%d\n",
+				__func__, OCV_UPDATE_STORAGE, rc);
+	}
+
+	pm_bms_masked_write(the_chip, OCV_UPDATE_STORAGE, OCV_HW_RESET_MASK, reset);
+
+	rc = pm8xxx_readb(the_chip->dev->parent, OCV_UPDATE_STORAGE, &ocv_hw_reset);
+	if (rc) {
+		pr_err("%s: failed to read addr = %d, rc=%d\n",
+				__func__, OCV_UPDATE_STORAGE, rc);
+	}
+
+	pr_info("%s OCV_UPDATE_STORAGE=0x%x->0x%x\n", __func__, ocv_hw_reset_old, ocv_hw_reset);
+
+	return (int)ocv_hw_reset;
+}
+
+EXPORT_SYMBOL(pm8921_store_hw_reset_reason);
 
 static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 				struct pm8921_soc_params *raw)
@@ -3147,6 +3187,11 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	pr_info("r_sense=%u,i_test=%u,v_failure=%u,default_rbatt_mohm=%d\n",
 			chip->r_sense, chip->i_test, chip->v_failure,
 			chip->default_rbatt_mohm);
+
+
+	
+	pm8921_store_hw_reset_reason(0);
+
 	return 0;
 
 free_irqs:

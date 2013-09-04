@@ -4608,9 +4608,9 @@ static struct msm_sensor_id_info_t vd6869_id_info = {
 static struct msm_sensor_exp_gain_info_t vd6869_exp_gain_info = {
 	.coarse_int_time_addr = 0x202,
 	.global_gain_addr = 0x204,
-	.vert_offset = 25,
+	.vert_offset = 25, 
 	.min_vert = 4,  
-	.sensor_max_linecount = 65525,  
+	.sensor_max_linecount = 65510,  
 };
 
 static struct vd6869_hdr_exp_info_t vd6869_hdr_gain_info = {
@@ -5065,27 +5065,6 @@ const static short ois_addr[3][VD6869_LITEON_OIS_OTP_SIZE] = {
 };
 #endif
 
-static void vd6869_dump_otp_to_file(const short* add, const uint8_t* data, size_t count)
-{
-    uint8_t *path= "/data/vd6869_otp.txt";
-    struct file* f = msm_fopen (path, O_CREAT|O_RDWR|O_TRUNC, 0666);
-    char buf[512];
-    int i=0;
-    int len=0;
-    pr_info ("%s\n",__func__);
-
-    if (f) {
-        for (i=0; i<count; ++i) {
-            len += sprintf (buf+len,"0x%x 0x%x\n",add[i],data[i]);
-        }
-
-        msm_fwrite (f,0,buf,len);
-        msm_fclose (f);
-    } else {
-        pr_err ("%s: fail to open file\n", __func__);
-    }
-}
-
 int vd6869_read_fuseid_liteon(struct sensor_cfg_data *cdata,
 	struct msm_sensor_ctrl_t *s_ctrl, bool first)
 {
@@ -5183,7 +5162,7 @@ int vd6869_read_fuseid_liteon(struct sensor_cfg_data *cdata,
         vd6869_apply_analog_setting(s_ctrl);
     }
     if (board_mfg_mode()) {
-        vd6869_dump_otp_to_file (otp_addr[valid_layer], otp, VD6869_LITEON_OTP_SIZE);
+        msm_dump_otp_to_file (PLATFORM_DRIVER_NAME,otp_addr[valid_layer], otp, VD6869_LITEON_OTP_SIZE);
     }
     
     cdata->cfg.fuse.fuse_id_word1 = 0;

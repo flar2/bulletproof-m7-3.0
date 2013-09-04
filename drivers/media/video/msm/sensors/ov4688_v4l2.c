@@ -1006,9 +1006,9 @@ static struct msm_sensor_id_info_t ov4688_id_info = {
 static struct msm_sensor_exp_gain_info_t ov4688_exp_gain_info = {
 	.coarse_int_time_addr = 0x3500,
 	.global_gain_addr = 0x3508,
-	.vert_offset = 25,
+	.vert_offset = 25, 
 	.min_vert = 4,  
-	.sensor_max_linecount = 65531,  
+	.sensor_max_linecount = 65510,  
 };
 
 static struct ov4688_hdr_exp_info_t ov4688_hdr_gain_info = {

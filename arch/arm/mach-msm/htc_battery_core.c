@@ -862,17 +862,8 @@ int htc_battery_core_update_changed(void)
 		if (CHARGER_USB == battery_core_info.rep.charging_source ||
 			CHARGER_USB == new_batt_info_rep.charging_source)
 			is_send_usb_uevent = 1;
-		if (CHARGER_DETECTING == battery_core_info.rep.charging_source ||
-			CHARGER_DETECTING == new_batt_info_rep.charging_source)
-			is_send_usb_uevent = 1;
-		if (CHARGER_UNKNOWN_USB == battery_core_info.rep.charging_source ||
-			CHARGER_UNKNOWN_USB == new_batt_info_rep.charging_source)
-			is_send_usb_uevent = 1;
 		if (CHARGER_AC == battery_core_info.rep.charging_source ||
 			CHARGER_AC == new_batt_info_rep.charging_source)
-			is_send_ac_uevent = 1;
-		if (CHARGER_9V_AC == battery_core_info.rep.charging_source ||
-			CHARGER_9V_AC == new_batt_info_rep.charging_source)
 			is_send_ac_uevent = 1;
 		if (CHARGER_MHL_AC == battery_core_info.rep.charging_source ||
 			CHARGER_MHL_AC == new_batt_info_rep.charging_source)

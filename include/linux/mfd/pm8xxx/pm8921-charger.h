@@ -107,6 +107,9 @@ struct pm8921_charger_platform_data {
 	int				cable_in_irq;
 	int				cable_in_gpio;
 	int				is_embeded_batt;
+	int				ichg_threshold_ua;
+	int				ichg_regulation_thr_ua;
+	int				eoc_ibat_thre_ma;
 	enum pm8921_chg_cold_thr	cold_thr;
 	enum pm8921_chg_hot_thr		hot_thr;
 	int				rconn_mohm;
